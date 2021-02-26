@@ -36,7 +36,7 @@ object MyKotlinSnake : AbstractBattleSnake<MyKotlinSnake.MySnakeContext>() {
     strategy(verbose = true) {
 
       onDescribe { call: ApplicationCall ->
-        DescribeResponse("me", "#ff0000", "beluga", "bolt")
+        DescribeResponse("Ludakr1ss", "#fff000", "pixel", "pixel")
       }
 
       onStart { context: MySnakeContext, request: StartRequest ->
