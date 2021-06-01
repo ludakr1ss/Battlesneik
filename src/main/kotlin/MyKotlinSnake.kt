@@ -16,70 +16,78 @@
 
 @file:Suppress("UndocumentedPublicClass", "UndocumentedPublicFunction")
 
-import io.battlesnake.core.AbstractBattleSnake
-import io.battlesnake.core.DOWN
-import io.battlesnake.core.DescribeResponse
-import io.battlesnake.core.GameStrategy
-import io.battlesnake.core.LEFT
-import io.battlesnake.core.MoveRequest
-import io.battlesnake.core.MoveResponse
-import io.battlesnake.core.RIGHT
-import io.battlesnake.core.SnakeContext
-import io.battlesnake.core.StartRequest
-import io.battlesnake.core.UP
-import io.battlesnake.core.strategy
+import io.battlesnake.core.*
 import io.ktor.application.*
+import io.ktor.http.*
 
 object MyKotlinSnake : AbstractBattleSnake<MyKotlinSnake.MySnakeContext>() {
 
-  override fun gameStrategy(): GameStrategy<MySnakeContext> =
-    strategy(verbose = true) {
+    override fun gameStrategy(): GameStrategy<MySnakeContext> =
+        strategy(verbose = true) {
 
-      onDescribe { call: ApplicationCall ->
-        DescribeResponse("Ludakr1ss", "#fff000", "pixel", "pixel")
-      }
+            onDescribe { call: ApplicationCall ->
+                DescribeResponse("Ludakr1ss", "#fff000", "pixel", "pixel")
+            }
 
-      onStart { context: MySnakeContext, request: StartRequest ->
-        fun originPath(x: Int, y: Int): List<MoveResponse> =
-          buildList {
-            repeat(y) { add(DOWN) }
-            repeat(x) { add(LEFT) }
-          }
+//            onStart { context: MySnakeContext, request: StartRequest ->
+//                fun originPath(x: Int, y: Int): List<MoveResponse> =
+//                    buildList {
+//                        repeat(y) { add(DOWN) }
+//                        repeat(x) { add(LEFT) }
+//                    }
+//
+//                val you = request.you
+//                val board = request.board
+//                val pos = you.headPosition
+//
+//                context.moves = originPath(you.headPosition.x, you.headPosition.y).iterator()
+//
+//                logger.info { "Position: ${pos.x},${pos.y} game id: ${request.gameId}" }
+//                logger.info { "Board: ${board.width}x${board.height} game id: ${request.gameId}" }
+//            }
 
-        val you = request.you
-        val board = request.board
+            onMove { context: MySnakeContext, request: MoveRequest ->
+                fun moveTo(request: MoveRequest, position: Position): MoveResponse =
+                    when {
+                        request.headPosition.x > position.x -> LEFT
+                        request.headPosition.x < position.x -> RIGHT
+                        request.headPosition.y > position.y -> DOWN
+                        else -> UP
+                    }
 
-        context.moves = originPath(you.headPosition.x, you.headPosition.y).iterator()
 
-        logger.info { "Go to origin moves: ${you.headPosition.x},${you.headPosition.y} game id: ${request.gameId}" }
-        logger.info { "Perimeter moves: ${board.width}x${board.height} game id: ${request.gameId}" }
-      }
+                fun nearestFood(head: Position, foodlist: List<Food>): Food =
+                    foodlist.maxByOrNull { head - it.position }!!
 
-      onMove { context: MySnakeContext, request: MoveRequest ->
-        fun perimeterPath(width: Int, height: Int): List<MoveResponse> =
-          buildList {
-            repeat(height - 1) { add(UP) }
-            repeat(width - 1) { add(RIGHT) }
-            repeat(height - 1) { add(DOWN) }
-            repeat(width - 1) { add(LEFT) }
-          }
+                if (request.isFoodAvailable)
+                    moveTo(request, nearestFood(request.headPosition, request.foodList).position)
+                else
+                    moveTo(request, request.boardCenter)
 
-        if (request.isAtOrigin)
-          context.moves = perimeterPath(request.board.width, request.board.height).iterator()
+                fun perimeterPath(width: Int, height: Int): List<MoveResponse> =
+                    buildList {
+                        repeat(height - 1) { add(UP) }
+                        repeat(width - 1) { add(RIGHT) }
+                        repeat(height - 1) { add(DOWN) }
+                        repeat(width - 1) { add(LEFT) }
+                    }
 
-        context.moves.next()
-      }
+                if (request.isAtOrigin)
+                    context.moves = perimeterPath(request.board.width, request.board.height).iterator()
+
+                context.moves.next()
+
+            }
+        }
+
+    override fun snakeContext(): MySnakeContext = MySnakeContext()
+
+    class MySnakeContext : SnakeContext() {
+        lateinit var moves: Iterator<MoveResponse>
     }
 
-  class MySnakeContext : SnakeContext() {
-    lateinit var moves: Iterator<MoveResponse>
-  }
-
-  override fun snakeContext(): MySnakeContext =
-    MySnakeContext()
-
-  @JvmStatic
-  fun main(args: Array<String>) {
-    run()
-  }
+    @JvmStatic
+    fun main(args: Array<String>) {
+        run()
+    }
 }
